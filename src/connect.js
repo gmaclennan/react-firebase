@@ -47,6 +47,7 @@ export default (mapFirebaseToProps = defaultMapFirebaseToProps, mergeProps = def
         this.ref = path => this.firebaseApp.database().ref(path)
         this.state = {
           subscriptionsState: null,
+          errors: {},
         }
       }
 
@@ -99,11 +100,24 @@ export default (mapFirebaseToProps = defaultMapFirebaseToProps, mergeProps = def
                   ...prevState.subscriptionsState,
                   [key]: value,
                 },
+                errors: {
+                  ...prevState.errors,
+                  [key]: null,
+                },
               }))
             }
           }
+          const onError = err => {
+            if (!this.mounted) return
+            this.setState(prevState => ({
+              errors: {
+                ...prevState.errors,
+                [key]: err,
+              },
+            }))
+          }
 
-          subscriptionRef.on('value', update)
+          subscriptionRef.on('value', update, onError)
 
           return {
             path,
@@ -138,10 +152,14 @@ export default (mapFirebaseToProps = defaultMapFirebaseToProps, mergeProps = def
         const firebaseProps = mapFirebase(this.props, this.ref, this.firebaseApp)
         const actionProps = pickBy(firebaseProps, prop => typeof prop === 'function')
         const subscriptionProps = this.state.subscriptionsState
-        const props = mergeProps(this.props, {
-          ...actionProps,
-          ...subscriptionProps,
-        })
+        const props = mergeProps(
+          this.props,
+          {
+            ...actionProps,
+            ...subscriptionProps,
+          },
+          this.state.errors
+        )
 
         return createElement(WrappedComponent, props)
       }
